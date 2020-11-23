@@ -1,6 +1,5 @@
 import * as d3 from 'd3-geo';
-import img1 from './assets/images/lightray.jpg';
-import img2 from './assets/images/lightray_yellow.jpg';
+
 const THREE = window.THREE;
 
 // 初始化一个场景
@@ -8,9 +7,6 @@ export default class ThreeMap {
   constructor(set) {
     this.mapData = set.mapData;
     this.color = '#006de0';
-    this.texts = [];
-    this.textures = [new THREE.TextureLoader().load(img1), new THREE.TextureLoader().load(img2)];
-    this.dataKeys = {};
     this.init();
   }
 
@@ -28,11 +24,9 @@ export default class ThreeMap {
     this.setHelper();
 
     this.drawMap();
-    this.setDataKeys();
 
     this.setControl();
     this.animate();
-
 
     document.body.addEventListener('click', this.mouseEvent.bind(this));
   }
@@ -95,29 +89,19 @@ export default class ThreeMap {
       this.clickFunction = func;
     }
   }
-  setDataKeys() {
-    this.mapData.features.forEach(d => {
-      const { name, cp } = d.properties;
-      this.dataKeys[name] = [...cp];
-    });
-  }
-  drawLightValue(values) {
-    values.forEach(val => {
-      if(this.dataKeys[val.name]) {
-        let cp = this.lnglatToMector(this.dataKeys[val.name]);
-        this.drawPlane(cp[0],cp[1],cp[2],val.value);
-      }
-    });
-  }
+
   /**
    * @desc 绘制地图
    */
   drawMap() {
-    // 把经纬度转换成x,y,z 坐标
     console.log(this.mapData);
+    if (!this.mapData) {
+      console.error('this.mapData 数据不能是null');
+      return;
+    }
+    // 把经纬度转换成x,y,z 坐标
     this.mapData.features.forEach(d => {
       d.vector3 = [];
-      this.addTextInLngLat(d.properties.cp,d.properties.name,"#FCFF55");
       d.geometry.coordinates.forEach((coordinates, i) => {
         d.vector3[i] = [];
         coordinates.forEach((c, j) => {
@@ -134,6 +118,9 @@ export default class ThreeMap {
         });
       });
     });
+
+    console.log(this.mapData);
+
     // 绘制地图模型
     const group = new THREE.Group();
     const lineGroup = new THREE.Group();
@@ -166,48 +153,7 @@ export default class ThreeMap {
     this.scene.add(lineGroupBottom);
     this.scene.add(group);
   }
-  drawPlane(x, y, z, value) {
-    const hei = value / 10;
-    const geometry = new THREE.PlaneGeometry(1, hei);
-    const material = new THREE.MeshBasicMaterial({
-      map: this.textures[0],
-      depthTest: false,
-      transparent: true,
-      color: "red",
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending
-    });
-    const plane = new THREE.Mesh(geometry, material);
-    plane.position.set(x, y, z + hei / 2);
-    plane.rotation.x = Math.PI / 2;
-    plane.rotation.z = Math.PI;
-    let count = 36;
-    for(let i = 1;i < count;i++){
-      const plane2 = plane.clone();
-      plane2.rotation.y = 2 * Math.PI / count * i;
-      this.scene.add(plane2);
-    }
-    this.scene.add(plane);
-  }
-  addText([x,y,z],text,color) {
-    let div = document.createElement("div");
-    this.texts.push({
-      text,color,
-      position: [x,y,z],
-      dom: div
-    })
-    Object.assign(div.style, {
-      position: "absolute",
-      color: color,
-      fontSize: "12px",
-    });
-    div.innerHTML = text;
-    this.renderer.domElement.parentNode.appendChild(div);
-  }
-  addTextInLngLat([lng,lat],text,color) {
-      let [x,y] = this.lnglatToMector([lng,lat]);
-      this.addText([x,y,0],text,color);
-  }
+
   /**
    * @desc 绘制线条
    * @param {} points
@@ -289,29 +235,7 @@ export default class ThreeMap {
 
     this.doAnimate && this.doAnimate.bind(this)();
   }
-  toDomCoord(x,y,z) {
-    let vector = new THREE.Vector3(x,y,z);
-    let standardVector = vector.project(this.camera);
-    let a = this.renderer.domElement.offsetWidth / 2;
-    let b = this.renderer.domElement.offsetHeight / 2;
-    let _x = Math.round(standardVector.x * a + a);
-    let _y = Math.round(-standardVector.y * b + b);
-    return {
-      x: _x,
-      y: _y
-    };
-  }
-  doAnimate() {
-    this.texts.forEach(txt => {
-      let position = txt.position;
-      let pos = this.toDomCoord(position[0],position[1],position[2]);
-      let div = txt.dom;
-      Object.assign(div.style, {
-        left: `${pos.x}px`,
-        top: `${pos.y}px`,
-      });
-    })
-  }
+
   /**
    * @desc 设置控制器
    */
@@ -356,30 +280,4 @@ export default class ThreeMap {
     const axesHelper = new THREE.AxisHelper(5);
     this.scene.add(axesHelper);
   }
-}
-
-function calculateCenter(array) {
-  let count = 0;
-  let X = 0,Y = 0,Z = 0;
-  if (typeof array[0][0] === "number") {
-    array.forEach(item => {
-      let [x,y] = item;
-      X += x;
-      Y += y;
-      Z += Z;
-      count++;
-    })
-  } else {
-    array.forEach(item => {
-      let [x,y] = calculateCenter(item);
-      X += x;
-      Y += y;
-      Z += Z;
-      count++;
-    })
-  }
-
-  X = X / count;
-  Y = Y / count;
-  return [X,Y,Z];
 }
